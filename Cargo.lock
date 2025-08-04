@@ -199,7 +199,7 @@ dependencies = [
 [[package]]
 name = "exstreamer"
 version = "0.1.0"
-source = "git+https://github.com/jasonshyang/exstreamer?branch=main#7272c80d4a3b7373ed9812248a610aec2d600e6a"
+source = "git+https://github.com/jasonshyang/exstreamer?rev=7272c80#7272c80d4a3b7373ed9812248a610aec2d600e6a"
 dependencies = [
  "async-trait",
  "bytes",
@@ -757,7 +757,7 @@ dependencies = [
 [[package]]
 name = "mizuhiki-ta"
 version = "0.1.0"
-source = "git+https://github.com/jasonshyang/mizuhiki-ta?branch=main#d581b95b0f33862f9947cba2a6dfadb9a92de138"
+source = "git+https://github.com/jasonshyang/mizuhiki-ta?rev=b0138af#b0138afacfd18642e54dc055b54acbed4130b786"
 dependencies = [
  "thiserror",
 ]

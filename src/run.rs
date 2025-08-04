@@ -212,19 +212,35 @@ where
     // Spawn collector tasks - these gather market data from external sources
     for collector in collectors {
         tracing::info!("Starting collector: {}", collector.name());
-
+        let shutdown_signal = shutdown.clone();
         let event_tx = event_tx.clone();
 
         set.spawn(async move {
             let mut stream = collector.get_event_stream().await.unwrap();
 
-            while let Some(event) = stream.next().await {
-                if event_tx.send(event).is_err() {
-                    tracing::info!(
-                        "Internal event broadcast channel closed for {}, exiting",
-                        collector.name()
-                    );
-                    break;
+            loop {
+                tokio::select! {
+                    biased;
+                    // Handle shutdown signal
+                    _ = shutdown_signal.cancelled() => {
+                        tracing::info!("Shutdown signal received, exiting collector {}", collector.name());
+                        break;
+                    }
+                    // Collect market data events
+                    event = stream.next() => {
+                        match event {
+                            Some(event) => {
+                                if event_tx.send(event).is_err() {
+                                    tracing::info!("Internal event channel is closed, exiting collector {}", collector.name());
+                                    break;
+                                }
+                            }
+                            None => {
+                                tracing::info!("Collector {} stream ended, exiting", collector.name());
+                                break;
+                            }
+                        }
+                    }
                 }
             }
 

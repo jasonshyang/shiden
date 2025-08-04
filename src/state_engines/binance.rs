@@ -1,4 +1,4 @@
-use mizuhiki_ta::core::CandleSeries;
+use mizuhiki_ta::{core::CandleSeries, indicators::Config as MizuhikiConfig};
 
 use crate::{
     models::event::InternalEvent,
@@ -7,13 +7,15 @@ use crate::{
 
 #[derive(Debug)]
 pub struct BinanceStateEngine {
+    indicator_config: MizuhikiConfig<f64>,
     candles: CandleSeries<f64>,
 }
 
 impl BinanceStateEngine {
     pub fn new() -> Self {
         BinanceStateEngine {
-            candles: CandleSeries::new(1_000),
+            indicator_config: MizuhikiConfig::default(),
+            candles: CandleSeries::new(30_000),
         }
     }
 
@@ -23,13 +25,24 @@ impl BinanceStateEngine {
     }
 
     pub fn calc_rsi(&self) -> Option<f64> {
-        let config = mizuhiki_ta::indicators::Config::default();
-        let result = mizuhiki_ta::indicators::rsi_latest(&self.candles, config);
+        let result = mizuhiki_ta::indicators::rsi_latest(&self.candles, &self.indicator_config);
 
         match result {
             Ok(rsi) => Some(rsi),
             Err(e) => {
                 tracing::error!("Error calculating RSI: {}", e);
+                None
+            }
+        }
+    }
+
+    pub fn calc_natr(&self) -> Option<f64> {
+        let result = mizuhiki_ta::indicators::natr_latest(&self.candles, &self.indicator_config);
+
+        match result {
+            Ok(natr) => Some(natr),
+            Err(e) => {
+                tracing::error!("Error calculating NATR: {}", e);
                 None
             }
         }
@@ -43,7 +56,7 @@ impl Default for BinanceStateEngine {
 }
 
 #[async_trait::async_trait]
-impl StateEngine<InternalEvent, Option<f64>> for BinanceStateEngine {
+impl StateEngine<InternalEvent, Option<(f64, f64)>> for BinanceStateEngine {
     fn name(&self) -> &'static str {
         "binance_state_engine"
     }
@@ -66,9 +79,16 @@ impl StateEngine<InternalEvent, Option<f64>> for BinanceStateEngine {
         Ok(())
     }
 
-    fn process_request(&self, request: OneShot<Option<f64>>) -> anyhow::Result<()> {
-        let rsi_value = self.calc_rsi();
-        request.respond(rsi_value)?;
+    fn process_request(&self, request: OneShot<Option<(f64, f64)>>) -> anyhow::Result<()> {
+        let rsi = self.calc_rsi();
+        let natr = self.calc_natr();
+
+        let res = match (rsi, natr) {
+            (Some(rsi), Some(natr)) => Some((rsi, natr)),
+            _ => None,
+        };
+
+        request.respond(res)?;
         Ok(())
     }
 
