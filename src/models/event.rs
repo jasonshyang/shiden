@@ -5,7 +5,8 @@ use exstreamer::exchanges::{
 
 #[derive(Debug, Clone)]
 pub enum InternalEvent {
-    Trade(Vec<Trade>),
+    BinanceTrade(Vec<Trade>),
+    BybitTrade(Vec<Trade>),
     Error(String),
     Unsupported(String),
 }
@@ -22,7 +23,7 @@ impl From<BinanceMessage> for InternalEvent {
         match message {
             BinanceMessage::Trade(trade) => {
                 match (trade.price.parse::<f64>(), trade.quantity.parse::<f64>()) {
-                    (Ok(price), Ok(size)) => InternalEvent::Trade(vec![Trade {
+                    (Ok(price), Ok(size)) => InternalEvent::BinanceTrade(vec![Trade {
                         price,
                         size,
                         timestamp: trade.trade_time,
@@ -46,7 +47,7 @@ impl From<BybitMessage> for InternalEvent {
                     trades.data.into_iter().map(TryInto::try_into).collect();
 
                 match parsed_trades {
-                    Ok(trades) => InternalEvent::Trade(trades),
+                    Ok(trades) => InternalEvent::BybitTrade(trades),
                     Err(e) => InternalEvent::Error(e),
                 }
             }

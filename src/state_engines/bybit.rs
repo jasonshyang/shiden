@@ -6,14 +6,14 @@ use crate::{
 };
 
 #[derive(Debug)]
-pub struct BinanceStateEngine {
+pub struct BybitStateEngine {
     indicator_config: MizuhikiConfig<f64>,
     candles: CandleSeries<f64>,
 }
 
-impl BinanceStateEngine {
+impl BybitStateEngine {
     pub fn new(timeframe: u64) -> Self {
-        BinanceStateEngine {
+        BybitStateEngine {
             indicator_config: MizuhikiConfig::default(),
             candles: CandleSeries::new(timeframe),
         }
@@ -50,9 +50,9 @@ impl BinanceStateEngine {
 }
 
 #[async_trait::async_trait]
-impl StateEngine<InternalEvent, InputElement> for BinanceStateEngine {
+impl StateEngine<InternalEvent, InputElement> for BybitStateEngine {
     fn name(&self) -> &'static str {
-        "binance_state_engine"
+        "bybit_state_engine"
     }
 
     async fn sync_state(&mut self) -> anyhow::Result<()> {
@@ -62,7 +62,7 @@ impl StateEngine<InternalEvent, InputElement> for BinanceStateEngine {
     #[allow(clippy::single_match)]
     fn process_event(&mut self, event: InternalEvent) -> anyhow::Result<()> {
         match event {
-            InternalEvent::BinanceTrade(trades) => {
+            InternalEvent::BybitTrade(trades) => {
                 for trade in trades {
                     self.add_price(trade.price, trade.size, trade.timestamp)?;
                 }
@@ -82,12 +82,12 @@ impl StateEngine<InternalEvent, InputElement> for BinanceStateEngine {
             _ => None,
         };
 
-        request.respond(InputElement::Binance(res))?;
+        request.respond(InputElement::Bybit(res))?;
         Ok(())
     }
 
     fn on_shutdown(&mut self) -> anyhow::Result<()> {
-        tracing::info!("Shutting down BinanceStateEngine");
+        tracing::info!("Shutting down BybitStateEngine");
 
         println!("Final State:");
         println!("{}", self.candles);

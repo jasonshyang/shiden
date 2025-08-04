@@ -1,4 +1,7 @@
-use shiden::{run::run_bot, state_engines::binance::BinanceStateEngine};
+use shiden::{
+    run::run_bot,
+    state_engines::{binance::BinanceStateEngine, bybit::BybitStateEngine},
+};
 use tokio_util::sync::CancellationToken;
 
 #[tokio::main]
@@ -9,14 +12,16 @@ async fn main() {
     // Initialize the Echo strategy
     let echo_strategy = shiden::strategies::echo::EchoStrategy;
     let binance_collector = shiden::collectors::binance::BinanceCollector;
+    let bybit_collector = shiden::collectors::bybit::BybitCollector;
     let echo_executor = shiden::executors::echo::EchoExecutor;
-    let binance_engine = BinanceStateEngine::new();
+    let binance_engine = BinanceStateEngine::new(1_000); // 1 second timeframe
+    let bybit_engine = BybitStateEngine::new(1_000); // 1 second timeframe
     let shutdown = CancellationToken::new();
 
     let mut set = run_bot(
         echo_strategy,
-        vec![Box::new(binance_engine)],
-        vec![Box::new(binance_collector)],
+        vec![Box::new(binance_engine), Box::new(bybit_engine)],
+        vec![Box::new(binance_collector), Box::new(bybit_collector)],
         vec![Box::new(echo_executor)],
         shutdown.clone(),
     );

@@ -1,24 +1,51 @@
-use crate::types::{InputBuilder, Strategy};
+use crate::{
+    models::input::InputElement,
+    types::{InputBuilder, Strategy},
+};
+
+#[derive(Debug)]
+pub struct EchoInput {
+    binance: (f64, f64), // (RSI, NATR)
+    bybit: (f64, f64),   // (RSI, NATR)
+}
 
 #[derive(Debug)]
 pub struct EchoStrategy;
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct EchoInputBuilder {
-    data: Option<(f64, f64)>,
+    binance: InputElement,
+    bybit: InputElement,
 }
 
-impl InputBuilder<Option<(f64, f64)>, (f64, f64)> for EchoInputBuilder {
-    fn insert(&mut self, data: Option<(f64, f64)>) {
-        self.data = data;
-    }
-
-    fn build(self) -> Result<(f64, f64), anyhow::Error> {
-        self.data.ok_or_else(|| anyhow::anyhow!("No data provided"))
+impl Default for EchoInputBuilder {
+    fn default() -> Self {
+        EchoInputBuilder {
+            binance: InputElement::Binance(None),
+            bybit: InputElement::Bybit(None),
+        }
     }
 }
 
-impl Strategy<Option<(f64, f64)>, (f64, f64), String> for EchoStrategy {
+impl InputBuilder<InputElement, EchoInput> for EchoInputBuilder {
+    fn insert(&mut self, data: InputElement) {
+        match data {
+            InputElement::Binance(_) => self.binance = data,
+            InputElement::Bybit(_) => self.bybit = data,
+        }
+    }
+
+    fn build(self) -> Result<EchoInput, anyhow::Error> {
+        match (self.binance, self.bybit) {
+            (InputElement::Binance(Some(binance)), InputElement::Bybit(Some(bybit))) => {
+                Ok(EchoInput { binance, bybit })
+            }
+            _ => Err(anyhow::anyhow!("Incomplete input data")),
+        }
+    }
+}
+
+impl Strategy<InputElement, EchoInput, String> for EchoStrategy {
     type InputBuilder = EchoInputBuilder;
     fn name(&self) -> &'static str {
         "echo_strategy"
@@ -28,10 +55,13 @@ impl Strategy<Option<(f64, f64)>, (f64, f64), String> for EchoStrategy {
         1000 // 1 second interval
     }
 
-    fn evaluate(&self, input: (f64, f64)) -> Vec<String> {
+    fn evaluate(&self, input: EchoInput) -> Vec<String> {
         vec![
-            format!("Echo RSI: {}", input.0),
-            format!("Echo NATR: {}", input.1),
+            format!(
+                "Echo Binance: RSI={}, NATR={}",
+                input.binance.0, input.binance.1
+            ),
+            format!("Echo Bybit: RSI={}, NATR={}", input.bybit.0, input.bybit.1),
         ]
     }
 }
