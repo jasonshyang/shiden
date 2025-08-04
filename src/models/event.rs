@@ -13,7 +13,7 @@ pub enum InternalEvent {
 #[derive(Debug, Clone)]
 pub struct Trade {
     pub price: f64,
-    pub quantity: f64,
+    pub size: f64,
     pub timestamp: u64,
 }
 
@@ -22,9 +22,9 @@ impl From<BinanceMessage> for InternalEvent {
         match message {
             BinanceMessage::Trade(trade) => {
                 match (trade.price.parse::<f64>(), trade.quantity.parse::<f64>()) {
-                    (Ok(price), Ok(quantity)) => InternalEvent::Trade(vec![Trade {
+                    (Ok(price), Ok(size)) => InternalEvent::Trade(vec![Trade {
                         price,
-                        quantity,
+                        size,
                         timestamp: trade.trade_time,
                     }]),
                     _ => InternalEvent::Error(format!(
@@ -62,7 +62,7 @@ impl TryFrom<BybitTradeData> for Trade {
         match (data.price.parse::<f64>(), data.size.parse::<f64>()) {
             (Ok(price), Ok(quantity)) => Ok(Trade {
                 price,
-                quantity,
+                size: quantity,
                 timestamp: data.timestamp,
             }),
             _ => Err(format!(

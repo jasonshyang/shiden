@@ -5,6 +5,7 @@ use tokio::{
     task::JoinSet,
 };
 use tokio_stream::StreamExt as _;
+use tokio_util::sync::CancellationToken;
 
 use crate::types::{Collector, Executor, InputBuilder, OneShot, StateEngine, Strategy};
 
@@ -37,6 +38,7 @@ pub fn run_bot<S, E, D, I, A>(
     states: Vec<Box<dyn StateEngine<E, D>>>,
     collectors: Vec<Box<dyn Collector<E>>>,
     executors: Vec<Box<dyn Executor<A>>>,
+    shutdown: CancellationToken,
 ) -> JoinSet<()>
 where
     S: Strategy<D, I, A> + Send + Sync + 'static,
@@ -83,7 +85,7 @@ where
         request_txs.push(request_tx);
 
         let mut event_rx = event_tx.subscribe();
-
+        let shutdown_signal = shutdown.clone();
         set.spawn(async move {
             if let Err(e) = state.sync_state().await {
                 tracing::error!("Failed to sync state {}: {}", state.name(), e);
@@ -93,6 +95,15 @@ where
             loop {
                 tokio::select! {
                     biased;
+                    // Handle shutdown signal
+                    _ = shutdown_signal.cancelled() => {
+                        tracing::info!("Shutdown signal received, exiting state {}", state.name());
+
+                        if let Err(e) = state.on_shutdown() {
+                            tracing::error!("Error during shutdown of state {}: {}", state.name(), e);
+                        }
+                        break;
+                    }
                     // Handle data requests from strategy (priority)
                     request = request_rx.recv() => {
                         match request {
@@ -129,58 +140,68 @@ where
     }
 
     // Spawn the main strategy task - this is the core trading logic
+    let shutdown_signal = shutdown.clone();
     set.spawn(async move {
         tracing::info!("Starting Strategy...");
         let mut interval = tokio::time::interval(Duration::from_millis(strategy.interval_ms()));
 
         'strategy: loop {
-            interval.tick().await;
-
-            // Request current data from all state engines in parallel
-            let mut handles = Vec::new();
-
-            for sender in &request_txs {
-                let (req, rx) = OneShot::new();
-                if let Err(e) = sender.send(req) {
-                    tracing::warn!("Request channel for state is closed: {e}, exiting");
+            tokio::select! {
+                biased;
+                // Handle shutdown signal
+                _ = shutdown_signal.cancelled() => {
+                    tracing::info!("Shutdown signal received, exiting strategy");
                     break 'strategy;
                 }
+                // Periodic evaluation of strategy
+                _ = interval.tick() => {
+                    // Request current data from all state engines in parallel
+                    let mut handles = Vec::new();
 
-                handles.push(tokio::spawn(rx));
-            }
+                    for sender in &request_txs {
+                        let (req, rx) = OneShot::new();
+                        if let Err(e) = sender.send(req) {
+                            tracing::warn!("Request channel for state is closed: {e}, exiting");
+                            break 'strategy;
+                        }
 
-            // Build strategy input from collected state data
-            let mut input_builder = S::InputBuilder::default();
+                        handles.push(tokio::spawn(rx));
+                    }
 
-            // Wait for all state responses and aggregate the data
-            // We should not need to timeout here because state engines process events and requests both
-            // synchronously, and requests are processed with priority over events
-            for res in futures::future::join_all(handles).await {
-                if let Ok(Ok(data)) = res {
-                    input_builder.insert(data);
-                } else {
-                    tracing::error!("Error receiving data from state request, exiting");
-                    break 'strategy;
-                }
-            }
+                    // Build strategy input from collected state data
+                    let mut input_builder = S::InputBuilder::default();
 
-            // Build the final input for strategy evaluation
-            let input = match input_builder.build() {
-                Ok(input) => input,
-                Err(e) => {
-                    tracing::error!("Error building input: {}, skipping", e);
-                    continue;
-                }
-            };
+                    // Wait for all state responses and aggregate the data
+                    // We should not need to timeout here because state engines process events and requests both
+                    // synchronously, and requests are processed with priority over events
+                    for res in futures::future::join_all(handles).await {
+                        if let Ok(Ok(data)) = res {
+                            input_builder.insert(data);
+                        } else {
+                            tracing::error!("Error receiving data from state request, exiting");
+                            break 'strategy;
+                        }
+                    }
 
-            // Run strategy logic to generate trading actions
-            let actions = strategy.evaluate(input);
+                    // Build the final input for strategy evaluation
+                    let input = match input_builder.build() {
+                        Ok(input) => input,
+                        Err(e) => {
+                            tracing::error!("Error building input: {}, skipping", e);
+                            continue;
+                        }
+                    };
 
-            // Send all generated actions to executors
-            for action in actions {
-                if action_tx.send(action).is_err() {
-                    tracing::error!("Action channel is closed, exiting");
-                    break 'strategy;
+                    // Run strategy logic to generate trading actions
+                    let actions = strategy.evaluate(input);
+
+                    // Send all generated actions to executors
+                    for action in actions {
+                        if action_tx.send(action).is_err() {
+                            tracing::error!("Action channel is closed, exiting");
+                            break 'strategy;
+                        }
+                    }
                 }
             }
         }
@@ -199,7 +220,10 @@ where
 
             while let Some(event) = stream.next().await {
                 if event_tx.send(event).is_err() {
-                    tracing::error!("Failed to send event from collector: {}", collector.name());
+                    tracing::info!(
+                        "Internal event broadcast channel closed for {}, exiting",
+                        collector.name()
+                    );
                     break;
                 }
             }

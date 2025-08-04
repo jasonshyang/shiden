@@ -1,4 +1,4 @@
-use mizuhiki_ta::{core::series::Series, indicators::rsi};
+use mizuhiki_ta::core::CandleSeries;
 
 use crate::{
     models::event::InternalEvent,
@@ -7,27 +7,31 @@ use crate::{
 
 #[derive(Debug)]
 pub struct BinanceStateEngine {
-    prices: Series<f64, u64>,
+    candles: CandleSeries<f64>,
 }
 
 impl BinanceStateEngine {
     pub fn new() -> Self {
         BinanceStateEngine {
-            prices: Series::new("binance_prices".to_string()),
+            candles: CandleSeries::new(1_000),
         }
     }
 
-    pub fn add_price(&mut self, price: f64, timestamp: u64) {
-        self.prices.push(price, timestamp);
+    pub fn add_price(&mut self, price: f64, volume: f64, timestamp: u64) -> anyhow::Result<()> {
+        self.candles.push(price, volume, timestamp)?;
+        Ok(())
     }
 
-    pub fn calc_rsi(&self, period: usize) -> Option<f64> {
-        let rsi_config = rsi::RsiConfig::<f64>::from_period(period);
-        let rsi_result = rsi::rsi(&self.prices, rsi_config);
-        if !rsi_result.rsi.is_empty() {
-            rsi_result.rsi.values().last().cloned()
-        } else {
-            None
+    pub fn calc_rsi(&self) -> Option<f64> {
+        let config = mizuhiki_ta::indicators::Config::default();
+        let result = mizuhiki_ta::indicators::rsi_latest(&self.candles, config);
+
+        match result {
+            Ok(rsi) => Some(rsi),
+            Err(e) => {
+                tracing::error!("Error calculating RSI: {}", e);
+                None
+            }
         }
     }
 }
@@ -53,7 +57,7 @@ impl StateEngine<InternalEvent, Option<f64>> for BinanceStateEngine {
         match event {
             InternalEvent::Trade(trades) => {
                 for trade in trades {
-                    self.add_price(trade.price, trade.timestamp);
+                    self.add_price(trade.price, trade.size, trade.timestamp)?;
                 }
             }
             _ => {}
@@ -63,9 +67,16 @@ impl StateEngine<InternalEvent, Option<f64>> for BinanceStateEngine {
     }
 
     fn process_request(&self, request: OneShot<Option<f64>>) -> anyhow::Result<()> {
-        // Process requests if needed, e.g., return the latest RSI value
-        let rsi_value = self.calc_rsi(14);
+        let rsi_value = self.calc_rsi();
         request.respond(rsi_value)?;
+        Ok(())
+    }
+
+    fn on_shutdown(&mut self) -> anyhow::Result<()> {
+        tracing::info!("Shutting down BinanceStateEngine");
+
+        println!("Final State:");
+        println!("{}", self.candles);
         Ok(())
     }
 }

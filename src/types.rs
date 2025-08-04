@@ -22,6 +22,8 @@ pub trait StateEngine<E, D>: Send + Sync {
     fn process_event(&mut self, event: E) -> Result<()>;
 
     fn process_request(&self, request: OneShot<D>) -> Result<()>;
+
+    fn on_shutdown(&mut self) -> Result<()>;
 }
 
 pub trait Strategy<D, I, A>: Send + Sync {

@@ -4,12 +4,13 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-exstreamer = { git = "https://github.com/jasonshyang/exstreamer" }
-mizuhiki-ta = { git = "https://github.com/jasonshyang/mizuhiki-ta" }
+exstreamer = { git = "https://github.com/jasonshyang/exstreamer", branch = "main" }
+mizuhiki-ta = { git = "https://github.com/jasonshyang/mizuhiki-ta", branch = "main" }
 
 anyhow = "1"
 tokio = { version = "1", features = ["full"] }
 tokio-stream = { version = "0.1", features = ["sync"] }
+tokio-util = "0.7"
 async-trait = "0.1"
 tracing = "0.1"
 tracing-subscriber = "0.3"
