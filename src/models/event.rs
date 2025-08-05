@@ -1,7 +1,4 @@
-use exstreamer::exchanges::{
-    binance::BinanceMessage,
-    bybit::{BybitMessage, BybitTradeData},
-};
+use exstreamer::models::{BinanceMessage, BybitMessage, BybitTradeData};
 
 #[derive(Debug, Clone)]
 pub enum InternalEvent {

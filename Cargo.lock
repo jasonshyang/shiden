@@ -199,7 +199,7 @@ dependencies = [
 [[package]]
 name = "exstreamer"
 version = "0.1.0"
-source = "git+https://github.com/jasonshyang/exstreamer?rev=7272c80#7272c80d4a3b7373ed9812248a610aec2d600e6a"
+source = "git+https://github.com/jasonshyang/exstreamer?rev=6864ef3#6864ef323a9a44017c0413ffb2448e40198cca34"
 dependencies = [
  "async-trait",
  "bytes",

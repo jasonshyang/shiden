@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-exstreamer = { git = "https://github.com/jasonshyang/exstreamer", rev = "7272c80" }
+exstreamer = { git = "https://github.com/jasonshyang/exstreamer", rev = "6864ef3" }
 mizuhiki-ta = { git = "https://github.com/jasonshyang/mizuhiki-ta", rev = "b0138af" }
 
 anyhow = "1"
