@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-exstreamer = { git = "https://github.com/jasonshyang/exstreamer", rev = "6864ef3" }
+exstreamer = { git = "https://github.com/jasonshyang/exstreamer", rev = "726bf09" }
 mizuhiki-ta = { git = "https://github.com/jasonshyang/mizuhiki-ta", rev = "b0138af" }
 
 anyhow = "1"
@@ -15,3 +15,6 @@ async-trait = "0.1"
 tracing = "0.1"
 tracing-subscriber = "0.3"
 futures = "0.3"
+metrics = "0.24.2"
+metrics-exporter-prometheus = "0.17.2"
+chrono = { version = "0.4", features = ["serde"] }
