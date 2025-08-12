@@ -7,7 +7,10 @@ use tokio::{
 use tokio_stream::StreamExt as _;
 use tokio_util::sync::CancellationToken;
 
-use crate::types::{Collector, Executor, InputBuilder, OneShot, StateEngine, Strategy};
+use crate::{
+    metrics::BotMetrics,
+    models::{Collector, Executor, InputBuilder, OneShot, StateEngine, Strategy},
+};
 
 /// Starts and orchestrates the entire trading bot system.
 ///
@@ -66,6 +69,7 @@ where
                         executor.name(),
                         e
                     );
+                    BotMetrics::record_error(executor.name());
                 }
             }
             tracing::info!("Executor {} exited", executor.name());
@@ -110,6 +114,7 @@ where
                             Some(request) => {
                                 if let Err(e) = state.process_request(request) {
                                     tracing::error!("Error processing request in state {}: {}", state.name(), e);
+                                    BotMetrics::record_error(state.name());
                                 }
                             }
                             None => {
@@ -124,6 +129,7 @@ where
                             Ok(event) => {
                                 if let Err(e) = state.process_event(event) {
                                     tracing::error!("Error processing event in state {}: {}", state.name(), e);
+                                    BotMetrics::record_error(state.name());
                                 }
                             }
                             Err(_) => {
@@ -188,6 +194,7 @@ where
                         Ok(input) => input,
                         Err(e) => {
                             tracing::error!("Error building input: {}, skipping", e);
+                            BotMetrics::record_error("strategy");
                             continue;
                         }
                     };

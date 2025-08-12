@@ -1,4 +1,4 @@
-use crate::types::Executor;
+use crate::models::Executor;
 
 #[derive(Debug)]
 pub struct EchoExecutor;

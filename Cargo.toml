@@ -18,3 +18,4 @@ futures = "0.3"
 metrics = "0.24.2"
 metrics-exporter-prometheus = "0.17.2"
 chrono = { version = "0.4", features = ["serde"] }
+rayon = "1.11.0"

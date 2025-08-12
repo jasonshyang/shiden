@@ -1,51 +1,32 @@
-use crate::{
-    models::input::InputElement,
-    types::{InputBuilder, Strategy},
-};
-
-#[derive(Debug)]
-pub struct EchoInput {
-    binance: (f64, f64), // (RSI, NATR)
-    bybit: (f64, f64),   // (RSI, NATR)
-}
+use crate::models::{InputBuilder, PriceData, StateOutput, Strategy};
 
 #[derive(Debug)]
 pub struct EchoStrategy;
 
 #[derive(Debug)]
+pub struct EchoInput {
+    prices: Vec<PriceData>,
+}
+
+#[derive(Debug, Default)]
 pub struct EchoInputBuilder {
-    binance: InputElement,
-    bybit: InputElement,
+    state_output: Option<StateOutput>,
 }
 
-impl Default for EchoInputBuilder {
-    fn default() -> Self {
-        EchoInputBuilder {
-            binance: InputElement::Binance(None),
-            bybit: InputElement::Bybit(None),
-        }
-    }
-}
-
-impl InputBuilder<InputElement, EchoInput> for EchoInputBuilder {
-    fn insert(&mut self, data: InputElement) {
-        match data {
-            InputElement::Binance(_) => self.binance = data,
-            InputElement::Bybit(_) => self.bybit = data,
-        }
+impl InputBuilder<StateOutput, EchoInput> for EchoInputBuilder {
+    fn insert(&mut self, data: StateOutput) {
+        self.state_output = Some(data);
     }
 
     fn build(self) -> Result<EchoInput, anyhow::Error> {
-        match (self.binance, self.bybit) {
-            (InputElement::Binance(Some(binance)), InputElement::Bybit(Some(bybit))) => {
-                Ok(EchoInput { binance, bybit })
-            }
-            _ => Err(anyhow::anyhow!("Incomplete input data")),
+        match self.state_output {
+            Some(StateOutput::Prices(prices)) => Ok(EchoInput { prices }),
+            _ => Err(anyhow::anyhow!("No prices available in state output")),
         }
     }
 }
 
-impl Strategy<InputElement, EchoInput, String> for EchoStrategy {
+impl Strategy<StateOutput, EchoInput, String> for EchoStrategy {
     type InputBuilder = EchoInputBuilder;
     fn name(&self) -> &'static str {
         "echo_strategy"
@@ -56,12 +37,10 @@ impl Strategy<InputElement, EchoInput, String> for EchoStrategy {
     }
 
     fn evaluate(&self, input: EchoInput) -> Vec<String> {
-        vec![
-            format!(
-                "Echo Binance: RSI={}, NATR={}",
-                input.binance.0, input.binance.1
-            ),
-            format!("Echo Bybit: RSI={}, NATR={}", input.bybit.0, input.bybit.1),
-        ]
+        input
+            .prices
+            .iter()
+            .map(|price_data| format!("{:?}: {}", price_data.source, price_data))
+            .collect()
     }
 }

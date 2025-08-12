@@ -1,34 +1,34 @@
-use exstreamer::{error::ExStreamError, models::BinanceMessage};
+use exstreamer::{error::ExStreamError, models::CoinbaseMessage};
 use futures::StreamExt;
 
 use crate::models::{Collector, CollectorStream, InternalEvent};
 
-pub struct BinanceCollector;
+pub struct CoinbaseCollector;
 
 #[async_trait::async_trait]
-impl Collector<InternalEvent> for BinanceCollector {
+impl Collector<InternalEvent> for CoinbaseCollector {
     fn name(&self) -> &'static str {
-        "binance_collector"
+        "coinbase_collector"
     }
 
     async fn get_event_stream(&self) -> anyhow::Result<CollectorStream<'_, InternalEvent>> {
-        let (stream, _) = exstreamer::StreamBuilder::binance()
-            .with_trade("btcusdt")
+        let (stream, _) = exstreamer::StreamBuilder::coinbase()
+            .with_trade("BTC-USD")
             .connect()
             .await
-            .expect("Failed to create Binance streamer");
+            .expect("Failed to create Coinbase streamer");
 
-        let internal_stream = stream.map(binance_result_to_internal_event);
+        let internal_stream = stream.map(coinbase_result_to_internal_event);
 
         Ok(Box::pin(internal_stream))
     }
 }
 
-fn binance_result_to_internal_event(
-    result: Result<BinanceMessage, ExStreamError>,
+fn coinbase_result_to_internal_event(
+    result: Result<CoinbaseMessage, ExStreamError>,
 ) -> InternalEvent {
     match result {
-        Ok(BinanceMessage::Trade(trade)) => match trade.try_into() {
+        Ok(CoinbaseMessage::Ticker(tick)) => match (*tick).try_into() {
             Ok(trade) => InternalEvent::Trade(trade),
             Err(e) => InternalEvent::Error(e.to_string()),
         },

@@ -1,27 +1,30 @@
-use shiden::{
-    run::run_bot,
-    state_engines::{binance::BinanceStateEngine, bybit::BybitStateEngine},
-};
+use shiden::{engines::price::PriceStateEngine, metrics::BotMetrics, run::run_bot};
 use tokio_util::sync::CancellationToken;
 
 #[tokio::main]
 async fn main() {
     // Initialize logging
     tracing_subscriber::fmt::init();
+    let metrics_addr: std::net::SocketAddr = "0.0.0.0:9090".parse().unwrap();
+    BotMetrics::init(metrics_addr);
 
     // Initialize the Echo strategy
     let echo_strategy = shiden::strategies::echo::EchoStrategy;
     let binance_collector = shiden::collectors::binance::BinanceCollector;
     let bybit_collector = shiden::collectors::bybit::BybitCollector;
+    let coinbase_collector = shiden::collectors::coinbase::CoinbaseCollector;
     let echo_executor = shiden::executors::echo::EchoExecutor;
-    let binance_engine = BinanceStateEngine::new(1_000); // 1 second timeframe
-    let bybit_engine = BybitStateEngine::new(1_000); // 1 second timeframe
+    let price_engine = PriceStateEngine::new(1_000); // 60 second candle timeframe
     let shutdown = CancellationToken::new();
 
     let mut set = run_bot(
         echo_strategy,
-        vec![Box::new(binance_engine), Box::new(bybit_engine)],
-        vec![Box::new(binance_collector), Box::new(bybit_collector)],
+        vec![Box::new(price_engine)],
+        vec![
+            Box::new(binance_collector),
+            Box::new(bybit_collector),
+            Box::new(coinbase_collector),
+        ],
         vec![Box::new(echo_executor)],
         shutdown.clone(),
     );
